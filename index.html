@@ -11,8 +11,8 @@
             --present: #c9b458;
             --absent: #3a3a3c;
             --bg: #121213;
-            --tile-border: #3a3a3c;
             --pink: #ff6b6b;
+            --border: #565758;
         }
 
         body {
@@ -28,194 +28,198 @@
         }
 
         h1 { color: var(--pink); margin-bottom: 5px; }
-        #phrase-display { margin-bottom: 20px; font-size: 1.2rem; color: #888; min-height: 1.5em; }
-        #phrase-display span { color: var(--correct); font-weight: bold; margin-right: 5px; }
-
-        .grid { display: grid; gap: 5px; margin-bottom: 20px; }
         
-        .row { display: flex; gap: 5px; }
+        #sentence-progress {
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            text-align: center;
+            min-height: 1.5em;
+            color: var(--correct);
+            font-weight: bold;
+        }
+
+        .grid-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .row {
+            display: flex;
+            gap: 5px;
+        }
 
         .tile {
-            width: 50px;
-            height: 50px;
-            border: 2px solid var(--tile-border);
+            width: 45px;
+            height: 45px;
+            border: 2px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: bold;
             text-transform: uppercase;
-            transition: transform 0.3s;
+            transition: all 0.2s;
         }
 
         .tile.correct { background-color: var(--correct); border-color: var(--correct); }
         .tile.present { background-color: var(--present); border-color: var(--present); }
         .tile.absent { background-color: var(--absent); border-color: var(--absent); }
-        .tile.pop { transform: scale(1.1); border-color: #565758; }
+        .tile.typing { border-color: #818384; transform: scale(1.05); }
 
-        #input-area { margin-top: 10px; }
         input {
-            padding: 10px;
-            font-size: 1rem;
-            border-radius: 5px;
-            border: none;
-            outline: none;
-            text-align: center;
-            width: 200px;
-            text-transform: uppercase;
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
         }
 
-        #final-card {
+        #final-modal {
             display: none;
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             background: white;
-            color: black;
-            padding: 30px;
-            border-radius: 15px;
+            color: #121213;
+            padding: 40px;
+            border-radius: 20px;
             text-align: center;
             z-index: 100;
-            box-shadow: 0 0 20px var(--pink);
+            box-shadow: 0 0 50px var(--pink);
+            width: 80%;
+            max-width: 400px;
         }
 
-        .shake { animation: shake 0.4s; }
+        .shake { animation: shake 0.5s; }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
         }
     </style>
 </head>
-<body>
+<body onclick="document.getElementById('hidden-input').focus()">
 
-    <h1>Para Sofía ❤️</h1>
-    <div id="phrase-display"></div>
-    <div id="game-container"></div>
+    <h1>Wordle para Sofía ❤️</h1>
+    <div id="sentence-progress"></div>
+    <div id="game-grid" class="grid-container"></div>
 
-    <div id="input-area">
-        <input type="text" id="guess-input" placeholder="Adivina la palabra..." autocomplete="off">
-    </div>
+    <input type="text" id="hidden-input" autofocus>
+    <p id="hint" style="color: #888; font-size: 0.9rem;">Escribe y presiona Enter</p>
 
-    <div id="final-card">
-        <h2 style="color: var(--pink); margin: 0;">¡Te quiero mucho Chofi! ❤️</h2>
-        <p id="full-phrase-text" style="font-weight: bold; margin-top: 15px;"></p>
+    <div id="final-modal">
+        <h2 style="color: var(--pink);">¡Te quiero mucho Chofi! ❤️</h2>
+        <p id="full-phrase" style="margin-top: 20px; font-weight: bold;"></p>
     </div>
 
     <script>
         const phrase = ["Estuve", "enamorado", "de", "ti", "pero", "creo", "que", "he", "vuelto", "de", "nuevo"];
-        let currentWordIndex = 0;
+        let currentIdx = 0;
+        let pastGuesses = [];
         
-        const container = document.getElementById('game-container');
-        const phraseDisplay = document.getElementById('phrase-display');
-        const input = document.getElementById('guess-input');
-        const finalCard = document.getElementById('final-card');
+        const grid = document.getElementById('game-grid');
+        const input = document.getElementById('hidden-input');
+        const progress = document.getElementById('sentence-progress');
 
-        function initWord() {
-            container.innerHTML = '';
-            const word = phrase[currentWordIndex].toUpperCase();
-            const row = document.createElement('div');
-            row.className = 'row';
+        function render() {
+            grid.innerHTML = '';
+            const target = phrase[currentIdx].toUpperCase();
             
-            for (let i = 0; i < word.length; i++) {
-                const tile = document.createElement('div');
-                tile.className = 'tile';
-                tile.id = `tile-${i}`;
-                row.appendChild(tile);
-            }
-            container.appendChild(row);
-            input.maxLength = word.length;
-            input.placeholder = `Palabra de ${word.length} letras`;
-            input.value = '';
-            input.focus();
-        }
-
-        input.addEventListener('keyup', (e) => {
-            const word = phrase[currentWordIndex].toUpperCase();
-            const guess = input.value.toUpperCase();
-            
-            // Llenar tiles visualmente mientras escribe
-            const tiles = document.querySelectorAll('.tile');
-            tiles.forEach((tile, i) => {
-                tile.textContent = guess[i] || '';
-                tile.classList.toggle('pop', !!guess[i]);
+            // 1. Dibujar intentos pasados
+            pastGuesses.forEach(guess => {
+                const row = document.createElement('div');
+                row.className = 'row';
+                const colors = getColors(guess, target);
+                
+                guess.split('').forEach((letter, i) => {
+                    const tile = document.createElement('div');
+                    tile.className = `tile ${colors[i]}`;
+                    tile.textContent = letter;
+                    row.appendChild(tile);
+                });
+                grid.appendChild(row);
             });
 
-            if (e.key === 'Enter') {
-                if (guess.length !== word.length) return;
+            // 2. Dibujar fila actual
+            if (currentIdx < phrase.length) {
+                const currentRow = document.createElement('div');
+                currentRow.className = 'row active-row';
+                const currentVal = input.value.toUpperCase().substring(0, target.length);
+                
+                for (let i = 0; i < target.length; i++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile' + (currentVal[i] ? ' typing' : '');
+                    tile.textContent = currentVal[i] || '';
+                    currentRow.appendChild(tile);
+                }
+                grid.appendChild(currentRow);
+            }
+        }
 
-                checkGuess(guess, word);
+        function getColors(guess, target) {
+            const targetArr = target.split('');
+            const guessArr = guess.split('');
+            const res = new Array(target.length).fill('absent');
+
+            guessArr.forEach((l, i) => {
+                if (l === targetArr[i]) {
+                    res[i] = 'correct';
+                    targetArr[i] = null;
+                }
+            });
+
+            guessArr.forEach((l, i) => {
+                if (res[i] === 'absent' && targetArr.includes(l)) {
+                    res[i] = 'present';
+                    targetArr[targetArr.indexOf(l)] = null;
+                }
+            });
+            return res;
+        }
+
+        input.addEventListener('input', render);
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const target = phrase[currentIdx].toUpperCase();
+                const guess = input.value.toUpperCase();
+
+                if (guess.length !== target.length) {
+                    grid.lastChild.classList.add('shake');
+                    setTimeout(() => grid.lastChild.classList.remove('shake'), 500);
+                    return;
+                }
+
+                if (guess === target) {
+                    progress.textContent += phrase[currentIdx] + " ";
+                    currentIdx++;
+                    pastGuesses = [];
+                    input.value = '';
+                    if (currentIdx === phrase.length) showWin();
+                } else {
+                    pastGuesses.push(guess);
+                    input.value = '';
+                }
+                render();
             }
         });
 
-        function checkGuess(guess, target) {
-            const tiles = document.querySelectorAll('.tile');
-            let correctCount = 0;
-            const targetArr = target.split('');
-            const guessArr = guess.split('');
-            const statuses = new Array(target.length).fill('absent');
-
-            // Primera pasada: Verdes
-            guessArr.forEach((letter, i) => {
-                if (letter === targetArr[i]) {
-                    statuses[i] = 'correct';
-                    targetArr[i] = null;
-                    correctCount++;
-                }
-            });
-
-            // Segunda pasada: Amarillos
-            guessArr.forEach((letter, i) => {
-                if (statuses[i] !== 'correct' && targetArr.includes(letter)) {
-                    statuses[i] = 'present';
-                    targetArr[targetArr.indexOf(letter)] = null;
-                }
-            });
-
-            // Aplicar colores
-            tiles.forEach((tile, i) => {
-                tile.className = `tile ${statuses[i]}`;
-            });
-
-            if (correctCount === target.length) {
-                setTimeout(nextWord, 800);
-            } else {
-                input.classList.add('shake');
-                setTimeout(() => input.classList.remove('shake'), 400);
-            }
-        }
-
-        function nextWord() {
-            // Añadir palabra completada al display
-            const span = document.createElement('span');
-            span.textContent = phrase[currentWordIndex] + " ";
-            phraseDisplay.appendChild(span);
-
-            currentWordIndex++;
-
-            if (currentWordIndex < phrase.length) {
-                initWord();
-            } else {
-                showWin();
-            }
-        }
-
         function showWin() {
-            document.getElementById('input-area').style.display = 'none';
-            container.style.display = 'none';
-            finalCard.style.display = 'block';
-            document.getElementById('full-phrase-text').textContent = `"${phrase.join(' ')}"`;
-            
+            document.getElementById('final-modal').style.display = 'block';
+            document.getElementById('full-phrase').textContent = `"${phrase.join(' ')}"`;
+            document.getElementById('hint').style.display = 'none';
             confetti({
-                particleCount: 200,
-                spread: 100,
+                particleCount: 150,
+                spread: 70,
                 origin: { y: 0.6 },
                 colors: ['#ff6b6b', '#6aaa64', '#ffffff']
             });
         }
 
-        initWord();
+        // Focus infinito
+        document.body.addEventListener('click', () => input.focus());
+        render();
     </script>
 </body>
 </html>
