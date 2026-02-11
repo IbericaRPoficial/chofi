@@ -8,171 +8,187 @@
     <style>
         :root {
             --correct: #6aaa64;
-            --present: #c9b458;
-            --absent: #787c7e;
             --bg: #121213;
             --tile-border: #3a3a3c;
             --pink: #ff6b6b;
+            --text: #ffffff;
         }
 
         body {
             background-color: var(--bg);
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            overflow-x: hidden;
+            padding: 20px;
+            text-align: center;
         }
 
-        h1 { margin-bottom: 5px; color: var(--pink); font-size: 1.5rem; }
-        p { margin-bottom: 20px; color: #ccc; font-size: 0.9rem; }
+        h1 { font-size: 1.8rem; color: var(--pink); margin-bottom: 10px; }
+        .instruction { color: #aaa; margin-bottom: 30px; font-style: italic; }
 
-        #game-board {
+        #phrase-container {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 8px;
-            max-width: 600px;
-            padding: 20px;
+            gap: 10px;
+            max-width: 800px;
+            margin-bottom: 40px;
         }
 
-        .tile {
-            width: 40px;
-            height: 40px;
-            border: 2px solid var(--tile-border);
+        .word-slot {
+            padding: 10px 15px;
+            border-bottom: 3px solid var(--tile-border);
+            min-width: 60px;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.2rem;
             font-weight: bold;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             text-transform: uppercase;
-            transition: all 0.3s ease;
-            user-select: none;
         }
 
-        .tile.space { border: none; width: 20px; }
-        .tile.revealed { border-color: var(--correct); background-color: var(--correct); }
-        .tile.pop { transform: scale(1.1); border-color: #888; }
+        .word-slot.revealed {
+            border-bottom-color: var(--correct);
+            color: var(--correct);
+            transform: scale(1.1);
+        }
 
-        #input-area { margin-top: 30px; text-align: center; }
+        #input-container {
+            position: relative;
+            margin-top: 20px;
+        }
+
         input {
-            background: transparent;
-            border: 2px solid var(--pink);
-            border-radius: 5px;
+            background: #272729;
+            border: 2px solid var(--tile-border);
+            border-radius: 8px;
             color: white;
-            padding: 10px;
-            font-size: 1rem;
+            padding: 12px 20px;
+            font-size: 1.1rem;
             outline: none;
-            width: 200px;
+            width: 250px;
             text-align: center;
+            transition: border-color 0.3s;
         }
 
-        #message {
+        input:focus { border-color: var(--pink); }
+
+        #final-message {
             display: none;
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             background: white;
-            color: black;
+            color: #121213;
             padding: 40px;
             border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 0 30px rgba(255,107,107,0.5);
-            z-index: 100;
-            animation: heartBeat 1.5s infinite;
+            box-shadow: 0 0 50px rgba(255, 107, 107, 0.6);
+            z-index: 1000;
+            width: 80%;
+            max-width: 400px;
         }
 
-        @keyframes heartBeat {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            14% { transform: translate(-50%, -50%) scale(1.1); }
-            28% { transform: translate(-50%, -50%) scale(1); }
-            42% { transform: translate(-50%, -50%) scale(1.1); }
-            70% { transform: translate(-50%, -50%) scale(1); }
+        #final-message h2 { color: var(--pink); font-size: 2rem; margin: 0; }
+        
+        .shake { animation: shake 0.5s linear; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
         }
-
-        #message h2 { color: var(--pink); margin: 0; font-size: 2rem; }
     </style>
 </head>
 <body>
 
-    <h1>Adivina la frase secreta</h1>
-    <p>Escribe letras para completar el mensaje</p>
+    <h1>Un mensaje para Sofía...</h1>
+    <p class="instruction">Escribe la frase palabra por palabra</p>
 
-    <div id="game-board"></div>
+    <div id="phrase-container"></div>
 
-    <div id="input-area">
-        <input type="text" id="letter-input" maxlength="1" placeholder="Escribe una letra..." autofocus>
+    <div id="input-container">
+        <input type="text" id="word-input" placeholder="Escribe la palabra aquí..." autocomplete="off">
     </div>
 
-    <div id="message" id="win-modal">
+    <div id="final-message">
         <h2>¡Te quiero mucho Chofi! ❤️</h2>
-        <p style="color: #333; margin-top: 10px;">Eres lo más especial del mundo.</p>
+        <p>Lograste descubrir lo que siento.</p>
+        <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; cursor: pointer; border: none; background: var(--pink); color: white; border-radius: 5px;">Volver a jugar</button>
     </div>
 
     <script>
-        const phrase = "ERES EL LUGAR AL QUE SIEMPRE QUIERO VOLVER SOFIA";
-        const board = document.getElementById('game-board');
-        const input = document.getElementById('letter-input');
-        const message = document.getElementById('message');
-        const guessedLetters = new Set();
+        const targetPhrase = ["Estuve", "enamorado", "de", "ti,", "pero", "creo", "que", "he", "vuelto", "de", "nuevo"];
+        let currentIndex = 0;
 
-        // Crear el tablero
-        function createBoard() {
-            board.innerHTML = '';
-            let words = phrase.split(' ');
-            
-            phrase.split('').forEach((char, index) => {
-                const tile = document.createElement('div');
-                tile.classList.add('tile');
-                
-                if (char === ' ') {
-                    tile.classList.add('space');
-                } else if (guessedLetters.has(char)) {
-                    tile.textContent = char;
-                    tile.classList.add('revealed');
-                }
-                
-                board.appendChild(tile);
-            });
-        }
+        const container = document.getElementById('phrase-container');
+        const input = document.getElementById('word-input');
+        const finalMessage = document.getElementById('final-message');
 
-        function checkWin() {
-            const lettersInPhrase = phrase.replace(/\s/g, '').split('');
-            const isWin = lettersInPhrase.every(l => guessedLetters.has(l));
-            
-            if (isWin) {
-                message.style.display = 'block';
-                input.style.display = 'none';
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#ff6b6b', '#ffffff', '#ff8787']
-                });
-            }
-        }
-
-        input.addEventListener('input', (e) => {
-            const char = e.target.value.toUpperCase();
-            if (char.match(/[A-ZÁÉÍÓÚÑ]/)) {
-                if (phrase.includes(char)) {
-                    guessedLetters.add(char);
-                    createBoard();
-                    checkWin();
-                }
-            }
-            e.target.value = '';
+        // Inicializar los huecos de las palabras
+        targetPhrase.forEach(() => {
+            const slot = document.createElement('div');
+            slot.classList.add('word-slot');
+            slot.textContent = "???";
+            container.appendChild(slot);
         });
 
-        // Mantener el foco en el input
-        document.addEventListener('click', () => input.focus());
+        input.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const userWord = input.value.trim().toLowerCase().replace(/[.,]/g, "");
+                const targetWord = targetPhrase[currentIndex].toLowerCase().replace(/[.,]/g, "");
 
-        createBoard();
+                if (userWord === targetWord) {
+                    // Acierto
+                    const slots = document.querySelectorAll('.word-slot');
+                    slots[currentIndex].textContent = targetPhrase[currentIndex];
+                    slots[currentIndex].classList.add('revealed');
+                    
+                    currentIndex++;
+                    input.value = '';
+
+                    if (currentIndex === targetPhrase.length) {
+                        win();
+                    }
+                } else {
+                    // Fallo
+                    input.classList.add('shake');
+                    setTimeout(() => input.classList.remove('shake'), 500);
+                    input.value = '';
+                }
+            }
+        });
+
+        function win() {
+            input.style.display = 'none';
+            finalMessage.style.display = 'block';
+            
+            const duration = 5 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function() {
+              const timeLeft = animationEnd - Date.now();
+
+              if (timeLeft <= 0) {
+                return clearInterval(interval);
+              }
+
+              const particleCount = 50 * (timeLeft / duration);
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
     </script>
 </body>
 </html>
